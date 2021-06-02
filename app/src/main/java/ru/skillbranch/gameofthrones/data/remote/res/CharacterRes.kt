@@ -20,10 +20,11 @@ data class CharacterRes(
     val books: List<String> = listOf(),
     val povBooks: List<Any> = listOf(),
     val tvSeries: List<String> = listOf(),
-    val playedBy: List<String> = listOf()
+    val playedBy: List<String> = listOf(),
+    var houseId: String? = null
 )
 
-fun CharacterRes.toCharacter(father : Character?, mother : Character?) = Character(
+fun CharacterRes.toCharacter(father : Character?, mother : Character?, houseId : String? = null) = Character(
         id = url.urlToId().toString(),
 name = name,
 gender = gender,
@@ -35,7 +36,7 @@ aliases = aliases,
 father = father?.id, //rel
 mother = mother?.id, //rel
 spouse = spouse,
-houseId = null //rel
+houseId = this.houseId ?: houseId //rel
 )
 
 

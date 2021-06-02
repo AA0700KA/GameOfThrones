@@ -3,25 +3,7 @@ package ru.skillbranch.gameofthrones.data.local.entities
 import androidx.room.*
 import ru.skillbranch.gameofthrones.repositories.ListConverter
 
-@Entity(tableName = "houses",
-        foreignKeys = [ForeignKey(
-                onDelete = ForeignKey.SET_NULL,
-                entity = Character::class,
-                parentColumns = ["id"],
-                childColumns = ["currentLord"]
-        ),
-            ForeignKey(
-                    onDelete = ForeignKey.SET_NULL,
-                    entity = Character::class,
-                    parentColumns = ["id"],
-                    childColumns = ["heir"]
-            ),
-            ForeignKey(
-                    onDelete = ForeignKey.SET_NULL,
-                    entity = Character::class,
-                    parentColumns = ["id"],
-                    childColumns = ["founder"]
-            )])
+@Entity(tableName = "houses")
 data class House(
         @PrimaryKey
     val id: String,
@@ -60,5 +42,8 @@ interface HouseDao {
 
     @Query("DELETE FROM houses")
     fun deleteAll()
+
+    @Query("UPDATE houses SET currentLord = :currentLord, heir = :heir, founder = :founder WHERE id = :id")
+    fun updateCharacters(currentLord: String?, heir: String?, founder: String?, id: String)
 
 }

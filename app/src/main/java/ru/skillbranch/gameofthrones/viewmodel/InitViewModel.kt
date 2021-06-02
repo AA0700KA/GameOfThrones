@@ -43,7 +43,7 @@ class InitViewModel : ViewModel() {
     }
 
     fun loadData() {
-        viewModelScope.launch(Dispatchers.IO) {
+      //  viewModelScope.launch(Dispatchers.IO) {
             AppConfig.repo.isNeedUpdate {
                 if (!it) {
                     CoroutineScope(Dispatchers.Main).launch {
@@ -53,7 +53,7 @@ class InitViewModel : ViewModel() {
                       loadDataFromNetwork()
                 }
             }
-        }
+       // }
     }
 
 //    fun loadDataFromDb() {
@@ -70,9 +70,9 @@ class InitViewModel : ViewModel() {
 //    }
 
     fun insertIntoDb(data : List<HouseRes>, complete : () -> Unit) {
-         viewModelScope.launch(Dispatchers.IO) {
+        // viewModelScope.launch(Dispatchers.IO) {
              AppConfig.repo.insertHouses(data, complete)
-         }
+        // }
     }
 
 }

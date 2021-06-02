@@ -28,19 +28,16 @@ fun String.getHouseId() : String {
     return currentHouse.split(" ")[1].trim()
 }
 
-fun HouseRes.toHouse(currentLord: Character?, heir: Character?, founder : Character?) = House(
-         id = name.getHouseId(),
-name = name,
-region = region,
-coatOfArms = coatOfArms,
-words = words,
-titles = titles,
-seats = seats,
-currentLord = currentLord?.id, //rel
-heir = heir?.id, //rel
-overlord = overlord,
-founded = founded ,
- founder = founder?.id, //rel
-diedOut = diedOut,
-ancestralWeapons = ancestralWeapons
-        )
+fun HouseRes.toHouse() = House(
+        id = name.getHouseId(),
+        name = name,
+        region = region,
+        coatOfArms = coatOfArms,
+        words = words,
+        titles = titles,
+        seats = seats,
+        overlord = overlord,
+        founded = founded ,
+        diedOut = diedOut,
+        ancestralWeapons = ancestralWeapons
+)

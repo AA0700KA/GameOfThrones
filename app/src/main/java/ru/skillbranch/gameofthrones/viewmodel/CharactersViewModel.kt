@@ -38,32 +38,31 @@ class CharactersViewModel : ViewModel() {
     }
 
     private fun loadCharacterFromDb(position: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
-            AppConfig.repo.findCharactersByHouseName(AppConfig.NEED_HOUSES[position]) {
+
+            AppConfig.repo.findCharactersByHouseName(AppConfig.NEED_HOUSES[position].getHouseId()) {
                 Log.d(TAG, "CharactersViewModel: All data from db $it")
                 val mainScope = CoroutineScope(Dispatchers.Main)
                 mainScope.launch {
                     charactersListState.value = CharactersHousesState(false, position = position, data = it)
                 }
             }
-        }
+
     }
 
     private fun loadCharactersFromNetwork(position : Int) {
         AppConfig.repo.getNeedHouseWithCharacters(AppConfig.NEED_HOUSES[position], result = {
-            val scope = CoroutineScope(Dispatchers.IO)
-            scope.launch {
+
                 val result = it.map { it.second }
                 Log.d(TAG, "CharactersViewModel: ${result.first()} from $it")
                 AppConfig.repo.insertCharacters(result.first()) {
-                    AppConfig.repo.db.getCharactersDao().updateHouseIdIfNull(AppConfig.NEED_HOUSES[position].getHouseId())
+                   // AppConfig.repo.db.getCharactersDao().updateHouseIdIfNull(AppConfig.NEED_HOUSES[position].getHouseId())
 
                     CoroutineScope(Dispatchers.Main).launch {
                         AppConfig.NEED_LOADERS[position].isLoadingCharacters = true
                         charactersListState.value = CharactersHousesState(true, position = position)
                     }
                 }
-            }
+
 
         })
     }

@@ -14,13 +14,13 @@ class CharacterViewModel : ViewModel() {
     val stateData : MutableLiveData<CharacterState> = MutableLiveData<CharacterState>()
 
     fun updateState(characterId : String, housePosition: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
+
             AppConfig.repo.findCharacterFullById(characterId) {
                 CoroutineScope(Dispatchers.Main).launch {
                     stateData.value = CharacterState(it, housePosition)
                 }
             }
-        }
+
     }
 
 }

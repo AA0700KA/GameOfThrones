@@ -4,26 +4,7 @@ import androidx.room.*
 import ru.skillbranch.gameofthrones.repositories.ListConverter
 
 
-@Entity(tableName = "characters",
-        foreignKeys = [ForeignKey(
-                onDelete = ForeignKey.SET_NULL,
-                entity = House::class,
-                parentColumns = ["id"],
-                childColumns = ["houseId"]),
-            ForeignKey(
-                    onDelete = ForeignKey.SET_NULL,
-                    entity = RelativeCharacter::class,
-                    parentColumns = ["id"],
-                    childColumns = ["father"]
-            ),
-            ForeignKey(
-                    onDelete = ForeignKey.SET_NULL,
-                    entity = RelativeCharacter::class,
-                    parentColumns = ["id"],
-                    childColumns = ["mother"]
-            )
-        ]
-)
+@Entity(tableName = "characters")
 data class Character(
         @PrimaryKey
     val id: String,
@@ -42,13 +23,7 @@ data class Character(
     val houseId: String? = null //rel
 )
 
-@Entity(tableName = "characters_item",
-        foreignKeys = [ForeignKey(
-                onDelete = ForeignKey.SET_NULL,
-                entity = House::class,
-                parentColumns = ["id"],
-                childColumns = ["house"])]
-)
+@Entity(tableName = "characters_item")
 data class CharacterItem(
         @PrimaryKey
     val id: String,
@@ -84,12 +59,7 @@ data class CharacterFull(
     val mother: RelativeCharacter?
 )
 
-@Entity(tableName = "relative_characters",
-        foreignKeys = [ForeignKey(
-                onDelete = ForeignKey.SET_NULL,
-                entity = House::class,
-                parentColumns = ["id"],
-                childColumns = ["house"])])
+@Entity(tableName = "relative_characters")
 data class RelativeCharacter(
         @PrimaryKey
     val id: String,

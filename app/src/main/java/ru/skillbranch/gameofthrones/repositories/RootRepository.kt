@@ -27,6 +27,7 @@ import ru.skillbranch.gameofthrones.data.remote.res.*
 import ru.skillbranch.gameofthrones.viewmodel.CharactersViewModel
 import java.net.ConnectException
 import java.util.concurrent.CountDownLatch
+import kotlin.math.log
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
@@ -129,6 +130,7 @@ object RootRepository {
                 for (url in house.swornMembers) {
                     val id = url.urlToId()
                     val character =  api.getCharacter(id!!).await()
+                    character.houseId = house.name.getHouseId()
                     characterList.add(character)
                 }
 
@@ -147,49 +149,75 @@ object RootRepository {
      * @param complete - колбек о завершении вставки записей db
      */
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    suspend fun insertHouses(houses : List<HouseRes>, complete: () -> Unit) {
+    fun insertHouses(houses : List<HouseRes>, complete: () -> Unit) {
 
-        val houseDao = db.getHouseDao()
-        val charactersDao = db.getCharactersDao()
+        val scope = CoroutineScope(Dispatchers.IO)
+        scope.launch {
+            val houseDao = db.getHouseDao()
 
-        for (houseRes in houses) {
-            val currentLord = getAndInsertCharacter(houseRes.currentLord.urlToId())
-            val heir = getAndInsertCharacter(houseRes.heir.urlToId())
-            val founder = getAndInsertCharacter(houseRes.founder.urlToId())
-            val house = houseRes.toHouse(currentLord, heir, founder)
-            houseDao.insert(house)
+            for (houseRes in houses) {
+                val house = houseRes.toHouse()
+                houseDao.insert(house)
+                val currentLord = getAndInsertCharacter(houseRes.currentLord.urlToId())
+                val heir = getAndInsertCharacter(houseRes.heir.urlToId())
+                val founder = getAndInsertCharacter(houseRes.founder.urlToId())
 
-            currentLord?.let {
-                charactersDao.updateHouseId(house.id, it)
+                houseDao.updateCharacters(currentLord?.id, heir?.id, founder?.id, house.id)
+
+
+//            currentLord?.let {
+//                charactersDao.updateHouseId(house.id, it)
+//            }
+//
+//            heir?.let {
+//                charactersDao.updateHouseId(house.id, it)
+//            }
+//
+//            founder?.let {
+//                charactersDao.updateHouseId(house.id, it)
+//            }
+
             }
 
-            heir?.let {
-                charactersDao.updateHouseId(house.id, it)
-            }
-
-            founder?.let {
-                charactersDao.updateHouseId(house.id, it)
-            }
-
+            complete()
         }
 
-        complete()
 
     }
 
-    private suspend fun getAndInsertCharacter(characterId : Int?) : Character? {
+    private suspend fun getAndInsertCharacter(characterId : Int?, houseId : String? = null) : Character? {
         characterId?.let {
              val characterRes = api.getCharacter(it).await()
-             val father = getAndInsertCharacter(characterRes.father.urlToId())
-             val mother = getAndInsertCharacter(characterRes.mother.urlToId())
-             val result = characterRes.toCharacter(father, mother)
-
-             db.getCharactersDao().addCharacter(result)
-             return result
+             characterRes.houseId = houseId
+             return getAndInsertCharacter(characterRes, houseId)
         }
 
         return null
 
+    }
+
+    private suspend fun getAndInsertCharacter(characterRes: CharacterRes, houseId: String? = null) : Character {
+//        Log.d("Farher", "${characterRes.name} Father URL: ${characterRes.father} and house = ${houseId}")
+//        Log.d("Farher", "${characterRes.name} Mother URL: ${characterRes.mother} and house = ${houseId}")
+        val father = getAndInsertCharacter(characterRes.father.urlToId(), houseId)
+        val mother = getAndInsertCharacter(characterRes.mother.urlToId(), houseId)
+
+//        Log.d("Father", characterRes.name)
+//
+//        father?.let {
+//            Log.d("Father", "${characterRes.name} IDH = ${characterRes.houseId}  Father: ${father.name} ${father.houseId}")
+//        }
+//
+//        mother?.let {
+//            Log.d("Father", "${characterRes.name} IDH = ${characterRes.houseId}  Mother: ${it.name} ${it.houseId}")
+//        }
+
+        val result = characterRes.toCharacter(father, mother, houseId)
+
+        Log.d("Father", "getAndInsertCharacter: $result")
+
+        db.getCharactersDao().addCharacter(result)
+        return result
     }
 
     /**
@@ -199,12 +227,16 @@ object RootRepository {
      * @param complete - колбек о завершении вставки записей db
      */
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    suspend fun insertCharacters(characters : List<CharacterRes>, complete: () -> Unit) {
-        for (characterRes in characters) {
-            getAndInsertCharacter(characterRes.url.urlToId())
+    fun insertCharacters(characters : List<CharacterRes>, complete: () -> Unit) {
+        val scope = CoroutineScope(Dispatchers.IO)
+        scope.launch {
+            for (characterRes in characters) {
+                getAndInsertCharacter(characterRes, characterRes.houseId)
+            }
+
+            complete()
         }
 
-        complete()
     }
 
     /**
@@ -212,19 +244,24 @@ object RootRepository {
      * @param complete - колбек о завершении очистки db
      */
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    suspend fun dropDb(complete: () -> Unit) {
-        val houseDao = db.getHouseDao()
-        val charactersDao = db.getCharactersDao()
+    fun dropDb(complete: () -> Unit) {
+        val scope = CoroutineScope(Dispatchers.IO)
 
-        houseDao.deleteAll()
-        charactersDao.deleteAll()
-        val loaders = AppConfig.NEED_LOADERS
+        scope.launch {
+            val houseDao = db.getHouseDao()
+            val charactersDao = db.getCharactersDao()
 
-        for (loader in loaders) {
-            loader.isLoadingCharacters = false
+            houseDao.deleteAll()
+            charactersDao.deleteAll()
+            val loaders = AppConfig.NEED_LOADERS
+
+            for (loader in loaders) {
+                loader.isLoadingCharacters = false
+            }
+
+            complete()
         }
 
-        complete()
     }
 
     /**
@@ -234,10 +271,14 @@ object RootRepository {
      * @param result - колбек содержащий в себе список краткой информации о персонажах дома
      */
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    suspend fun findCharactersByHouseName(name : String, result: (characters : List<CharacterItem>) -> Unit) {
-        val charactersDao = db.getCharactersDao()
-        val resultData = charactersDao.getCharactersItemByHouse(name.getHouseId())
-        result(resultData)
+    fun findCharactersByHouseName(name : String, result: (characters : List<CharacterItem>) -> Unit) {
+        val scope = CoroutineScope(Dispatchers.IO)
+        scope.launch {
+            val charactersDao = db.getCharactersDao()
+            val resultData = charactersDao.getCharactersItemByHouse(name)
+            result(resultData)
+        }
+
     }
 
     /**
@@ -247,28 +288,38 @@ object RootRepository {
      * @param result - колбек содержащий в себе полную информацию о персонаже
      */
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    suspend fun findCharacterFullById(id : String, result: (character : CharacterFull) -> Unit) {
-        val characterDao = db.getCharactersDao()
-        val houseDao = db.getHouseDao()
-        val character = characterDao.getCharacter(id)
+    fun findCharacterFullById(id : String, result: (character : CharacterFull) -> Unit) {
+        val scope = CoroutineScope(Dispatchers.IO)
+        scope.launch {
+            val characterDao = db.getCharactersDao()
+            val houseDao = db.getHouseDao()
+            val character = characterDao.getCharacter(id)
 
-        character?.let {
-            val father = characterDao.getRelativeCharacter(it.father)
-            val mother = characterDao.getRelativeCharacter(it.mother)
-            val words = houseDao.getWords(it.houseId)
-            val characterFull = it.toCharacterFull(words, father, mother)
-            result(characterFull)
+            Log.d(TAG, "findCharacterFullById: ${id} and Result = ${character}")
+            character?.let {
+
+                val father = characterDao.getRelativeCharacter(it.father)
+                val mother = characterDao.getRelativeCharacter(it.mother)
+                val words = houseDao.getWords(it.houseId)
+                val characterFull = it.toCharacterFull(words, father, mother)
+                result(characterFull)
+            }
         }
+
     }
 
     /**
      * Метод возвращет true если в базе нет ни одной записи, иначе false
      * @param result - колбек о завершении очистки db
      */
-    suspend fun isNeedUpdate(result: (isNeed : Boolean) -> Unit){
-        val houseDao = db.getHouseDao()
-        val houses = houseDao.getHauses()
-        result(houses.size == 0)
+    fun isNeedUpdate(result: (isNeed : Boolean) -> Unit){
+        val scope = CoroutineScope(Dispatchers.IO)
+
+        scope.launch {
+            val houseDao = db.getHouseDao()
+            val houses = houseDao.getHauses()
+            result(houses.size == 0)
+        }
 
     }
 
@@ -330,12 +381,12 @@ class ListConverter {
 
     @TypeConverter
     fun toString(list : List<String>) : String {
-        return list.joinToString(" ")
+        return list.joinToString { it }
     }
 
     @TypeConverter
     fun toList(str : String) : List<String> {
-        return str.split(" ")
+        return str.split(", ")
     }
 
 }
